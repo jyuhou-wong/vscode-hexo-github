@@ -90,6 +90,9 @@ Hexo-GitHub 是一个 VSCode 插件，专注于通过直观的可视化操作简
 
 All notable changes to the "vscode-hexo-github" extension will be documented in this file.
 
+### [3.0.7] - 2025-06-19
+- Fix theme searching issue
+
 ### [3.0.6] - 2024-11-29
 
 #### Fixed

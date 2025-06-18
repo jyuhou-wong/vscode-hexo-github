@@ -491,38 +491,35 @@ export const searchNpmPackages = async (
   text: string,
   regex?: RegExp
 ): Promise<string[]> => {
+  let allPackages: any[] = [];
+  let from = 0;
+  const size = 250;
+  const maxPackages = 1000; // ✅ 修改为最多抓取 1000 个
+
   try {
-    let allPackages: any[] = [];
-    let from = 0;
-    const size = 250;
+    while (allPackages.length < maxPackages) {
+      const response = await axios.get("https://api.npms.io/v2/search", {
+        params: {
+          q: text,
+          size,
+          from,
+        },
+      });
 
-    // Fetch packages until all are retrieved
-    while (true) {
-      const response = await axios.get(
-        "https://registry.npmjs.org/-/v1/search",
-        {
-          params: {
-            text, // Pass the text parameter to the API
-            size,
-            from,
-            popularity: 1.0,
-          },
-        }
-      );
-
-      const packages = response.data.objects;
-      allPackages = allPackages.concat(packages); // Combine the current batch with all previously fetched packages
-
-      // If the number of packages fetched is less than the size, we've reached the end
-      if (packages.length < size) {
+      const results = response.data.results;
+      if (!results || results.length === 0) {
         break;
       }
 
-      // Increment 'from' to fetch the next batch
+      allPackages = allPackages.concat(results);
+
+      if (results.length < size) {
+        break;
+      } // 最后一页
       from += size;
     }
 
-    // Filter packages based on the regex if provided
+    // 用正则筛选包名
     let matchedPackages = allPackages;
     if (regex) {
       matchedPackages = matchedPackages.filter((pkg) =>
@@ -530,7 +527,8 @@ export const searchNpmPackages = async (
       );
     }
 
-    return matchedPackages.map((pkg) => pkg.package.name); // Return only the package names
+    // 限制返回前 1000 个结果
+    return matchedPackages.slice(0, maxPackages).map((pkg) => pkg.package.name); // Return only the package names
   } catch (error) {
     logMessage(`Error fetching npm packages: ${error}`, false, "error");
     throw error; // Re-throw error for handling in the calling function
