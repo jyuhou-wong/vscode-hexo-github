@@ -20,7 +20,6 @@ import {
   deleteSite,
   addSite,
   renameItem,
-  setTheme,
 } from "./hexoCommands";
 import { deleteItem, refreshBlogsProvider } from "../utils";
 import { TreeItem } from "../views/blogsTreeDataProvider";
