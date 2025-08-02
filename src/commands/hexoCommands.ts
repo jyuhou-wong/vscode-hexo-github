@@ -1,4 +1,4 @@
-import { Uri } from "vscode";
+import { Uri, ExtensionContext, window, workspace, commands } from "vscode";
 import * as vscode from "vscode";
 import {
   getHexoConfig,
@@ -20,7 +20,6 @@ import {
   openFile,
   promptForName,
   refreshBlogsProvider,
-  revealItem,
   searchNpmPackages,
 } from "../utils";
 import {
@@ -39,26 +38,29 @@ import {
   POSTS_DIRNAME,
   EXT_HOME_DIR,
 } from "../services/config";
-import { basename, join } from "path";
-import { existsSync, rmSync } from "fs";
+import { basename, join, extname, dirname } from "path";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "fs";
 import {
   BlogsTreeDataProvider,
   TreeItem,
 } from "../providers/blogsTreeDataProvider";
 import { logMessage } from "../extension";
+import * as fm from "hexo-front-matter";
 
-interface ServerObj {
+interface ServerInfo {
   server: Server;
   address: string;
 }
 
-const servers: Map<string, ServerObj> = new Map();
-const serversStatus: Map<string, boolean> = new Map();
+const serverMap: Map<string, ServerInfo> = new Map();
+const serverStatusMap: Map<string, boolean> = new Map();
 
-// Execute Hexo command
+/**
+ * Execute a custom Hexo command.
+ */
 export const executeHexoCommand = async (
   element: TreeItem,
-  _context: vscode.ExtensionContext
+  _context: ExtensionContext
 ) => {
   const { siteDir } = element;
   await executeUserCommand(
@@ -67,154 +69,125 @@ export const executeHexoCommand = async (
   );
 };
 
-// 主函数
-export const addItem = async (
-  element: TreeItem,
-  context: vscode.ExtensionContext
-) => {
+/**
+ * Add a new item (page, draft, blog, or sub route).
+ */
+export const addItem = async (element: TreeItem, context: ExtensionContext) => {
   try {
     const { siteDir, resourceUri, label } = element;
-
     const config = await getHexoConfig(siteDir);
 
-    // 检查是否是根目录
+    // Root directory
     if (!resourceUri) {
-      // 处理页面
       if (label === BlogsTreeDataProvider.getLabel()) {
-        const name = await promptForName("Please enter the page name");
-        if (!name) {
-          return;
-        }
-        await handleCreateFile(siteDir, name, "Page", context); // 创建页面
-      }
-      // 处理草稿
-      else if (label === BlogsTreeDataProvider.getLabel(DRAFTS_DIRNAME)) {
-        const name = await promptForName("Please enter the draft name");
-        if (!name) {
-          return;
-        }
-        await handleCreateFile(siteDir, name, "Draft", context); // 创建草稿
-      }
-      // 处理博客
-      else if (label === BlogsTreeDataProvider.getLabel(POSTS_DIRNAME)) {
-        const options = ["Blog", "Sub Route"];
-        const selection = await vscode.window.showQuickPick(options, {
-          placeHolder: "Choose an option",
-        });
-
-        if (!selection) {
-          return;
-        }
-
-        if (selection === "Sub Route") {
-          const name = await promptForName("Please enter the sub route name");
-          if (!name) {
-            return;
-          }
-          const path = join(siteDir, config.source_dir, POSTS_DIRNAME, name);
-          createDirectory(path); // 创建子目录
-        } else {
-          const name = await promptForName("Please enter the blog name");
-          if (!name) {
-            return;
-          }
-          await handleCreateFile(siteDir, name, "Blog", context); // 创建博客
-        }
+        await createPage(siteDir, context);
+      } else if (label === BlogsTreeDataProvider.getLabel(DRAFTS_DIRNAME)) {
+        await createDraft(siteDir, context);
+      } else if (label === BlogsTreeDataProvider.getLabel(POSTS_DIRNAME)) {
+        await handleBlogOrSubRoute(siteDir, config, context);
       }
     } else {
-      // 处理在文章目录中创建子路由或博客的逻辑
-      const options = ["Blog", "Sub Route"];
-      const selection = await vscode.window.showQuickPick(options, {
-        placeHolder: "Choose an option",
-      });
-
-      if (!selection) {
-        return;
-      }
-
-      if (selection === "Sub Route") {
-        const name = await promptForName("Please enter the sub route name");
-        if (!name) {
-          return;
-        }
-        const route = join(element.resourceUri!.fsPath, name);
-        createDirectory(route); // 创建子目录
-      } else {
-        const name = await promptForName("Please enter the blog name");
-        if (!name) {
-          return;
-        }
-        await handleCreateFile(
-          siteDir,
-          name,
-          "Blog",
-          context,
-          element.resourceUri?.fsPath
-        ); // 创建博客
-      }
+      await handleBlogOrSubRoute(
+        siteDir,
+        config,
+        context,
+        element.resourceUri?.fsPath
+      );
     }
   } catch (error) {
     handleError(error, "Failed to create item");
   }
 };
 
-// Create a new Hexo blog post
+async function createPage(siteDir: string, context: ExtensionContext) {
+  const name = await promptForName("Please enter the page name");
+  if (name) {
+    await handleCreateFile(siteDir, name, "Page", context);
+  }
+}
+
+async function createDraft(siteDir: string, context: ExtensionContext) {
+  const name = await promptForName("Please enter the draft name");
+  if (name) {
+    await handleCreateFile(siteDir, name, "Draft", context);
+  }
+}
+
+async function handleBlogOrSubRoute(
+  siteDir: string,
+  config: any,
+  context: ExtensionContext,
+  parentPath?: string
+) {
+  const options = ["Blog", "Sub Route"];
+  const selection = await window.showQuickPick(options, {
+    placeHolder: "Choose an option",
+  });
+  if (!selection) return;
+
+  if (selection === "Sub Route") {
+    const name = await promptForName("Please enter the sub route name");
+    if (!name) return;
+    const dirPath = parentPath
+      ? join(parentPath, name)
+      : join(siteDir, config.source_dir, POSTS_DIRNAME, name);
+    createDirectory(dirPath);
+  } else {
+    const name = await promptForName("Please enter the blog name");
+    if (!name) return;
+    await handleCreateFile(siteDir, name, "Blog", context, parentPath);
+  }
+}
+
+/**
+ * Create a new Hexo blog post.
+ */
 export const createNewBlogPost = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  context: ExtensionContext
 ) => {
   try {
     const { siteDir } = element;
-
-    const path = await vscode.window.showInputBox({
+    const inputPath = await window.showInputBox({
       placeHolder: "e.g., about/My first blog",
     });
-
-    if (!path) {
-      return;
-    }
-
-    if (!isValidPath(path)) {
-      throw new Error("Path is invalid");
-    }
+    if (!inputPath) return;
+    if (!isValidPath(inputPath)) throw new Error("Path is invalid");
 
     const config = await getHexoConfig(siteDir);
     const postPath = join(
       siteDir,
       config.source_dir,
       POSTS_DIRNAME,
-      `${path}.md`
+      `${inputPath}.md`
     );
+    if (existsSync(postPath)) throw new Error("Blog already exists");
 
-    if (existsSync(postPath)) {
-      throw new Error("Blog is existed");
-    }
-
-    await hexoExec(siteDir, `new --path "${path}"`);
-
-    // 打开文件进行编辑
-    const document = await vscode.workspace.openTextDocument(postPath);
-    await vscode.window.showTextDocument(document);
-    logMessage(`Blog ${basename(path)} created and opened for editing.`, true);
+    await hexoExec(siteDir, `new --path "${inputPath}"`);
+    const document = await workspace.openTextDocument(postPath);
+    await window.showTextDocument(document);
+    logMessage(
+      `Blog ${basename(inputPath)} created and opened for editing.`,
+      true
+    );
   } catch (error) {
     handleError(error, "Failed to create new blog");
   }
 };
 
-// Function to update the command title based on server status
-const updateServerStatus = (siteName: string, status: boolean): void => {
-  // vscode.commands.executeCommand(
-  //   "setContext",
-  //   "vscode-hexo-github.serversStatus.get(siteName)",
-  //   status
-  // );
-  serversStatus.set(siteName, status);
+/**
+ * Update server status.
+ */
+const setServerStatus = (siteName: string, status: boolean): void => {
+  serverStatusMap.set(siteName, status);
 };
 
-// Start Hexo server
+/**
+ * Start Hexo server.
+ */
 export const startHexoServer = async (
   element: TreeItem,
-  _context: vscode.ExtensionContext
+  _context: ExtensionContext
 ) => {
   const { siteName, siteDir } = element;
   logMessage("Starting server...", true);
@@ -227,41 +200,43 @@ export const startHexoServer = async (
     const { address } = server.address() as any;
     const url = formatAddress(address, port);
 
-    servers.set(siteName, { server, address: url });
-
-    updateServerStatus(siteName, true);
+    serverMap.set(siteName, { server, address: url });
+    setServerStatus(siteName, true);
     logMessage(`Successfully started server: ${url}`, true);
   } catch (error) {
     handleError(error, "Failed to start Hexo server");
   }
 };
 
-// Stop Hexo server
+/**
+ * Stop Hexo server.
+ */
 export const stopHexoServer = async (
   element: TreeItem,
-  _context: vscode.ExtensionContext
+  _context: ExtensionContext
 ) => {
   try {
     const { siteName } = element;
-    const { server } = servers.get(siteName)!;
+    const { server } = serverMap.get(siteName)!;
     server.close();
-    updateServerStatus(siteName, false);
-    logMessage("Successfully stoped server", true);
+    setServerStatus(siteName, false);
+    logMessage("Successfully stopped server", true);
   } catch (error) {
     handleError(error, "Failed to stop Hexo server");
   }
 };
 
-// Start Hexo server
+/**
+ * Publish a draft post.
+ */
 export const publishDraft = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  _context: ExtensionContext
 ) => {
   const { siteDir, resourceUri } = element;
   const name = basename(resourceUri!.fsPath, ".md");
   try {
     await hexoExec(siteDir, `publish ${name} --debug`);
-
     const config = await getHexoConfig(siteDir);
     const postPath = join(
       siteDir,
@@ -269,19 +244,19 @@ export const publishDraft = async (
       POSTS_DIRNAME,
       `${name}.md`
     );
-
     await openFile(postPath);
-
     logMessage(`Successfully published ${name}`, true);
   } catch (error) {
     handleError(error, `Failed to publish ${name}`);
   }
 };
 
-// Deploy Blog
+/**
+ * Deploy blog to GitHub Pages.
+ */
 export const deployBlog = async (
   element: TreeItem,
-  _context: vscode.ExtensionContext
+  _context: ExtensionContext
 ) => {
   logMessage("Deploying...", true);
   try {
@@ -292,30 +267,27 @@ export const deployBlog = async (
   }
 };
 
-// Open Blog Local Preview
+/**
+ * Open local preview for a blog post.
+ */
 export const localPreview = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  context: ExtensionContext
 ) => {
   const {
     siteName,
     siteDir,
     resourceUri: { fsPath } = { fsPath: "" },
   } = element;
-
-  // 同时打开文件在活动编辑器
-  vscode.commands.executeCommand("vscode.open", Uri.file(fsPath));
-
-  if (!fsPath) {
-    return;
-  }
+  commands.executeCommand("vscode.open", Uri.file(fsPath));
+  if (!fsPath) return;
 
   logMessage("Opening...", true);
   try {
-    if (!serversStatus.get(siteName)) {
+    if (!serverStatusMap.get(siteName)) {
       await startHexoServer(element, context);
     }
-    const { address } = servers.get(siteName)!;
+    const { address } = serverMap.get(siteName)!;
     const route = await getPreviewRoute(siteDir, fsPath);
     open(address + route);
   } catch (error) {
@@ -323,10 +295,12 @@ export const localPreview = async (
   }
 };
 
-// Apply theme
+/**
+ * Apply a Hexo theme.
+ */
 export const applyTheme = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  context: ExtensionContext
 ) => {
   const {
     siteName,
@@ -334,84 +308,66 @@ export const applyTheme = async (
     label,
     resourceUri: { fsPath } = { fsPath: "" },
   } = element;
-  -(
-    // 同时打开文件在活动编辑器
-    vscode.commands.executeCommand("vscode.open", Uri.file(fsPath))
-  );
-
-  if (!fsPath) {
-    return;
-  }
+  commands.executeCommand("vscode.open", Uri.file(fsPath));
+  if (!fsPath) return;
 
   logMessage("Applying...", true);
   try {
-    // 应用主题
     await hexoExec(siteDir, `config theme ${label} --debug`);
-
-    // 清除缓存
     await hexoExec(siteDir, "clean --debug");
-
-    // 停止服务器
-    if (serversStatus.get(siteName)) {
+    if (serverStatusMap.get(siteName)) {
       await stopHexoServer(element, context);
       await startHexoServer(element, context);
     }
-
     logMessage(`Successfully applied the theme "${label}".`, true);
   } catch (error) {
-    handleError(error, "Failed to apply themee");
+    handleError(error, "Failed to apply theme");
   }
 };
 
-// add theme
+/**
+ * Add a new Hexo theme.
+ */
 export const addTheme = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  context: ExtensionContext
 ) => {
   const { siteDir } = element;
   logMessage("Loading...", true);
 
   const options = await searchNpmPackages("hexo-theme-", /^hexo-theme-[^-]+$/);
-  const selection = await vscode.window.showQuickPick(options, {
+  const selection = await window.showQuickPick(options, {
     placeHolder: "Choose an option",
   });
-
-  if (!selection) {
-    return;
-  }
+  if (!selection) return;
 
   logMessage("Installing...", true);
-
   try {
     await installNpmModule(siteDir, selection);
-
     refreshBlogsProvider(context);
   } catch (error) {
-    handleError(error, "Failed to test");
+    handleError(error, "Failed to install theme");
   }
 };
 
+/**
+ * Delete a Hexo theme.
+ */
 export const deleteTheme = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  context: ExtensionContext
 ): Promise<boolean> => {
   const { siteDir, label } = element;
-
   const themePath = join(siteDir, "themes", label);
   const themeConfigPath = join(siteDir, `_config.${label}.yml`);
 
-  // Ask for user confirmation
-  const confirmation = await vscode.window.showWarningMessage(
+  const confirm = await window.showWarningMessage(
     `Delete "${label}" theme?`,
     { modal: true },
     "Delete"
   );
+  if (confirm !== "Delete") return false;
 
-  if (confirmation !== "Delete") {
-    return false;
-  }
-
-  // Return an empty array if the themes directory does not exist
   if (existsSync(themePath)) {
     try {
       rmSync(themePath, { recursive: true, force: true });
@@ -423,9 +379,7 @@ export const deleteTheme = async (
 
   if (isModuleExisted(siteDir, `hexo-theme-${label}`)) {
     try {
-      await execAsync(`npm uninstall hexo-theme-${label}`, {
-        cwd: siteDir,
-      });
+      await execAsync(`npm uninstall hexo-theme-${label}`, { cwd: siteDir });
       logMessage(
         `"hexo-theme-${label}" npm module uninstalled successfully.`,
         true
@@ -433,20 +387,19 @@ export const deleteTheme = async (
     } catch (error) {
       handleError(
         error,
-        `Error uninstalling "hexo-theme-${label}" npm module .`
+        `Error uninstalling "hexo-theme-${label}" npm module.`
       );
     }
   }
 
   if (existsSync(themeConfigPath)) {
-    const confirmation = await vscode.window.showWarningMessage(
+    const configConfirm = await window.showWarningMessage(
       `Keep "${label}" Theme config?`,
       { modal: true },
       "Keep",
       "Delete"
     );
-
-    if (confirmation === "Delete") {
+    if (configConfirm === "Delete") {
       try {
         rmSync(themeConfigPath, { recursive: true, force: true });
         logMessage(`Successfully deleted "${label}" Theme config.`, true);
@@ -457,33 +410,26 @@ export const deleteTheme = async (
   }
 
   refreshBlogsProvider(context);
-  return true; // Return the array of TreeItem representing themes
+  return true;
 };
 
-// add theme
+/**
+ * Add a new Hexo site.
+ */
 export const addSite = async (
-  element: TreeItem,
-  context: vscode.ExtensionContext
+  _element: TreeItem,
+  context: ExtensionContext
 ) => {
   try {
     const siteName = await promptForName("Please enter the site name");
-    if (!siteName) {
-      return;
-    }
+    if (!siteName) return;
 
     const octokit = await getUserOctokitInstance(localAccessToken);
     const repoExists = await checkRepoExists(octokit, siteName);
-
-    if (repoExists) {
-      throw Error(`Site "${siteName}" already exists on github.`);
-    }
-
-    if (!localUsername) {
-      throw Error("Not login in, Please log in first.");
-    }
+    if (repoExists) throw Error(`Site "${siteName}" already exists on github.`);
+    if (!localUsername) throw Error("Not logged in, Please log in first.");
 
     const siteDir = join(EXT_HOME_DIR, localUsername, siteName);
-
     await initializeSite(siteDir);
     refreshBlogsProvider(context);
     await pushToGitHubPages({
@@ -497,24 +443,21 @@ export const addSite = async (
   }
 };
 
+/**
+ * Delete a Hexo site.
+ */
 export const deleteSite = async (
   element: TreeItem,
-  context: vscode.ExtensionContext
+  context: ExtensionContext
 ): Promise<boolean> => {
   const { userName, siteName, siteDir, label } = element;
-
-  // Ask for user confirmation
-  const confirmation = await vscode.window.showWarningMessage(
+  const confirm = await window.showWarningMessage(
     `Delete "${label}" site?`,
     { modal: true },
     "Delete"
   );
+  if (confirm !== "Delete") return false;
 
-  if (confirmation !== "Delete") {
-    return false;
-  }
-
-  // Return an empty array if the themes directory does not exist
   if (existsSync(siteDir)) {
     try {
       rmSync(siteDir, { recursive: true, force: true });
@@ -526,28 +469,106 @@ export const deleteSite = async (
 
   const octokit = await getUserOctokitInstance(localAccessToken);
   const repoExists = await checkRepoExists(octokit, siteName);
-
   if (repoExists) {
-    const confirmation = await vscode.window.showWarningMessage(
+    const repoConfirm = await window.showWarningMessage(
       `Keep "${label}" github page?`,
       { modal: true },
       "Keep",
       "Delete"
     );
-
-    if (confirmation === "Delete") {
+    if (repoConfirm === "Delete") {
       try {
         await deleteRemoteRepo(octokit, userName, siteName);
       } catch (error) {
-        handleError(error, `Error deleting "${label}" theme config.`);
+        handleError(error, `Error deleting "${label}" github repo.`);
       }
     }
   }
-
   return true;
 };
 
-// Test something
+/**
+ * Rename a file or directory.
+ */
+export const renameItem = async (
+  element: TreeItem,
+  context: ExtensionContext
+) => {
+  try {
+    const { resourceUri, label, contextValue } = element;
+
+    if (!resourceUri) {
+      window.showWarningMessage("No item selected to rename.");
+      return;
+    }
+
+    let oldPath: string;
+
+    if (contextValue === "page") {
+      oldPath = dirname(resourceUri.fsPath);
+    } else {
+      oldPath = resourceUri.fsPath;
+    }
+
+    const dir = dirname(oldPath);
+    const ext = extname(oldPath);
+    const baseName = basename(oldPath, ext);
+
+    const newBaseName = await promptForName(`Rename "${label}" to:`, {
+      value: baseName,
+    });
+    if (!newBaseName || newBaseName === baseName) return;
+
+    const newName = newBaseName + ext;
+    const newPath = join(dir, newName);
+    if (existsSync(newPath)) {
+      window.showErrorMessage(`"${newName}" already exists.`);
+      return;
+    }
+
+    await workspace.fs.rename(Uri.file(oldPath), Uri.file(newPath));
+
+    // Use the new file path to update the title
+    let newTitlePath: string | undefined;
+    if (contextValue === "page") {
+      newTitlePath = join(newPath, "index.md");
+    } else if (ext === ".md") {
+      newTitlePath = newPath;
+    }
+
+    if (newTitlePath && existsSync(newTitlePath)) {
+      await updateMarkdownTitle(newTitlePath, newBaseName);
+    }
+
+    logMessage(`Renamed "${label}" to "${newBaseName}".`, true);
+    refreshBlogsProvider(context);
+  } catch (error) {
+    handleError(error, "Failed to rename item");
+  }
+};
+
+/**
+ * Update the title in the front-matter of a markdown file.
+ */
+export const updateMarkdownTitle = async (
+  filePath: string,
+  newTitle: string
+): Promise<void> => {
+  try {
+    const file = readFileSync(filePath, "utf8");
+    const data = fm.parse(file);
+    data.title = newTitle;
+    const newContent = fm.stringify(data, { prefixSeparator: true });
+    writeFileSync(filePath, newContent, "utf8");
+    logMessage(`Updated title to "${newTitle}" in ${filePath}`, true);
+  } catch (error) {
+    handleError(error, "Failed to update markdown title");
+  }
+};
+
+/**
+ * Test utility function.
+ */
 export const testSomething = async () => {
   try {
     logMessage("Test completed successfully", true);

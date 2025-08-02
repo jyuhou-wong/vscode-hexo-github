@@ -419,7 +419,7 @@ export const openFile = async (path: string) => {
  */
 export const promptForName = async (
   placeHolder: string,
-  args: object = {}
+  args?: vscode.InputBoxOptions
 ): Promise<string | undefined> => {
   const name = await vscode.window.showInputBox({ placeHolder, ...args });
   if (!name) {
