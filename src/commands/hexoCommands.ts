@@ -327,6 +327,25 @@ export const applyTheme = async (
 };
 
 /**
+ * Apply a Hexo theme.
+ */
+export const setTheme = async (
+  element: TreeItem,
+  context: ExtensionContext
+) => {
+  const { siteDir, label } = element;
+  const configPath = join(siteDir, `_config.${label}.yml`);
+  if (existsSync(configPath)) {
+    const doc = await workspace.openTextDocument(configPath);
+    await window.showTextDocument(doc);
+  } else {
+    window.showWarningMessage(
+      `Config file _config.${label}.yml not found in site directory.`
+    );
+  }
+};
+
+/**
  * Add a new Hexo theme.
  */
 export const addTheme = async (
