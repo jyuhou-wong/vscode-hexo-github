@@ -20,9 +20,10 @@ import {
   deleteSite,
   addSite,
   renameItem,
+  setTheme,
 } from "./hexoCommands";
 import { deleteItem, refreshBlogsProvider } from "../utils";
-import { TreeItem } from "../providers/blogsTreeDataProvider";
+import { TreeItem } from "../views/blogsTreeDataProvider";
 
 // Register all commands
 const commands = [
@@ -49,6 +50,7 @@ const commands = [
   { command: "vscode-hexo-github.deleteItem", callback: deleteItem },
   { command: "vscode-hexo-github.deleteTheme", callback: deleteTheme },
   { command: "vscode-hexo-github.applyTheme", callback: applyTheme },
+  { command: "vscode-hexo-github.setTheme", callback: setTheme },
   { command: "vscode-hexo-github.addTheme", callback: addTheme },
   { command: "vscode-hexo-github.renameItem", callback: renameItem },
   {

@@ -1,9 +1,10 @@
 // src/extension.ts
 import * as vscode from "vscode";
 import { registerCommands } from "./commands/index";
-import { registerBlogsProvider } from "./providers";
 import { registerActiveEditorChangeListener } from "./events";
 import { loadAccessToken } from "./services/githubService";
+import { BlogsTreeDataProvider } from "./views/blogsTreeDataProvider";
+import { BlogsDragAndDropController } from "./views/BlogsDragAndDropController";
 
 let outputChannel: vscode.OutputChannel;
 
@@ -20,8 +21,19 @@ export function activate(context: vscode.ExtensionContext) {
   // Register commands
   registerCommands(context);
 
-  // Register custom Blogs view
-  registerBlogsProvider(context);
+  // 创建 TreeDataProvider
+  const blogsProvider = new BlogsTreeDataProvider(context);
+  // 创建 TreeView
+  const blogsTreeView = vscode.window.createTreeView(
+    "vscode-hexo-github-blogs",
+    {
+      treeDataProvider: blogsProvider,
+      dragAndDropController: new BlogsDragAndDropController(blogsProvider),
+    }
+  );
+  // 注册资源
+  context.subscriptions.push(blogsProvider);
+  context.subscriptions.push(blogsTreeView);
 
   // Register custom events
   registerActiveEditorChangeListener(context);

@@ -37,13 +37,14 @@ import {
   DRAFTS_DIRNAME,
   POSTS_DIRNAME,
   EXT_HOME_DIR,
+  STARTER_THEMES_DIRNAME,
 } from "../services/config";
 import { basename, join, extname, dirname } from "path";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "fs";
 import {
   BlogsTreeDataProvider,
   TreeItem,
-} from "../providers/blogsTreeDataProvider";
+} from "../views/blogsTreeDataProvider";
 import { logMessage } from "../extension";
 import * as fm from "hexo-front-matter";
 
@@ -322,6 +323,25 @@ export const applyTheme = async (
     logMessage(`Successfully applied the theme "${label}".`, true);
   } catch (error) {
     handleError(error, "Failed to apply theme");
+  }
+};
+
+/**
+ * Apply a Hexo theme.
+ */
+export const setTheme = async (
+  element: TreeItem,
+  context: ExtensionContext
+) => {
+  const { siteDir, label } = element;
+  const configPath = join(siteDir, `_config.${label}.yml`);
+  if (existsSync(configPath)) {
+    const doc = await workspace.openTextDocument(configPath);
+    await window.showTextDocument(doc);
+  } else {
+    window.showWarningMessage(
+      `Config file _config.${label}.yml not found in site directory.`
+    );
   }
 };
 

@@ -20,7 +20,11 @@ import {
 import { getHexoConfig } from "../services/hexoService";
 import { existsSync, statSync } from "fs";
 import { FSWatcher, watch } from "chokidar";
-import { getThemesInPackageJson, getThemesInThemesDir } from "../utils";
+import {
+  copyNpmPackageToDir,
+  getThemePackageNamesInPackageJson,
+  getThemesInThemesDir,
+} from "../utils";
 import { localAccessToken, localUsername } from "../services/githubService";
 import { logMessage } from "../extension";
 
@@ -251,13 +255,16 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
   private async getThemes(parent: TreeItem): Promise<TreeItem[]> {
     const { userName, siteName, siteDir } = parent;
 
+    const npmThemeNames = await getThemePackageNamesInPackageJson(siteDir);
+    for (const themeName of npmThemeNames) {
+      copyNpmPackageToDir(
+        siteDir,
+        themeName,
+        join(siteDir, STARTER_THEMES_DIRNAME)
+      );
+    }
+
     const localThemes = await getThemesInThemesDir(
-      userName,
-      siteName,
-      siteDir,
-      parent
-    );
-    const npmThemes = await getThemesInPackageJson(
       userName,
       siteName,
       siteDir,
@@ -269,15 +276,7 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
       localThemes.map((v) => [v.label, v])
     );
 
-    // Create an object from npm themes for easy lookup
-    const npmThemesObject = Object.fromEntries(
-      npmThemes.map((v) => [v.label, v])
-    );
-
-    // Combine both theme objects
-    const allThemesObject = Object.assign(npmThemesObject, localThemesObject);
-
-    const themes = Object.values(allThemesObject);
+    const themes = Object.values(localThemesObject);
 
     themes.forEach((v) => this.uriCache.set(v.resourceUri!!.toString(), v));
 
