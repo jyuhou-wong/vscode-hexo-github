@@ -1,4 +1,4 @@
-import { TreeItemCollapsibleState, Uri } from "vscode";
+import { TreeItemCollapsibleState, Uri, window } from "vscode";
 import * as vscode from "vscode";
 import {
   copyFileSync,
@@ -22,6 +22,12 @@ import { SimpleGit } from "simple-git";
 import { DEFAULT_EMAIL, DEFAULT_USERNAME } from "./services/config";
 import { load, dump } from "js-yaml";
 import { logMessage } from "./extension";
+import {
+  checkRepoExists,
+  deleteRemoteRepo,
+  getUserOctokitInstance,
+  localAccessToken,
+} from "./services/githubService";
 
 /**
  * Checks if two paths are equal.
@@ -372,8 +378,9 @@ export const deleteItem = async (
   args: any,
   context: vscode.ExtensionContext
 ) => {
-  let path = args.resourceUri.fsPath;
-  let { label, contextValue } = args;
+  let { siteDir, label, contextValue, siteName, userName, uri } = args;
+
+  let path = uri.fsPath;
 
   let prompt: string = "";
 
@@ -384,6 +391,10 @@ export const deleteItem = async (
 
     case "theme":
       prompt = `Are you sure you want to delete theme "${label}" and its config`;
+      break;
+
+    case "scaffold":
+      prompt = `Are you sure you want to delete scaffold "${label}"`;
       break;
 
     case "page":
@@ -409,21 +420,80 @@ export const deleteItem = async (
   }
 
   // Ask for user confirmation
-  const confirmation = await vscode.window.showWarningMessage(
+  const confirm = await vscode.window.showWarningMessage(
     prompt,
     { modal: true },
     "Delete"
   );
 
-  if (confirmation === "Delete") {
-    try {
-      // Delete the item (file or directory)
-      rmSync(path, { recursive: true, force: true });
-      logMessage(`Deleted "${path}" successfully.`, true);
-    } catch (error) {
-      handleError(error, "Error deleting item");
+  if (confirm !== "Delete") return false;
+
+  try {
+    // Delete the item (file or directory)
+    rmSync(path, { recursive: true, force: true });
+    logMessage(`Deleted "${path}" successfully.`, true);
+  } catch (error) {
+    handleError(error, "Error deleting item");
+  }
+
+  if (contextValue === "site") {
+    const octokit = await getUserOctokitInstance(localAccessToken);
+    const repoExists = await checkRepoExists(octokit, siteName);
+    if (repoExists) {
+      const repoConfirm = await window.showWarningMessage(
+        `Keep "${label}" github page?`,
+        { modal: true },
+        "Keep",
+        "Delete"
+      );
+      if (repoConfirm === "Delete") {
+        try {
+          await deleteRemoteRepo(octokit, userName, siteName);
+        } catch (error) {
+          handleError(error, `Error deleting "${label}" github repo.`);
+        }
+      }
     }
   }
+
+  if (
+    contextValue === "theme" &&
+    isModuleExisted(siteDir, `hexo-theme-${label}`)
+  ) {
+    try {
+      await execAsync(`npm uninstall hexo-theme-${label}`, { cwd: siteDir });
+      logMessage(
+        `"hexo-theme-${label}" npm module uninstalled successfully.`,
+        true
+      );
+    } catch (error) {
+      handleError(
+        error,
+        `Error uninstalling "hexo-theme-${label}" npm module.`
+      );
+    }
+
+    const themeConfigPath = join(siteDir, `_config.${label}.yml`);
+
+    if (existsSync(themeConfigPath)) {
+      const configConfirm = await window.showWarningMessage(
+        `Keep "${label}" Theme config?`,
+        { modal: true },
+        "Keep",
+        "Delete"
+      );
+      if (configConfirm === "Delete") {
+        try {
+          rmSync(themeConfigPath, { recursive: true, force: true });
+          logMessage(`Successfully deleted "${label}" Theme config.`, true);
+        } catch (error) {
+          handleError(error, `Error deleting "${label}" Theme config.`);
+        }
+      }
+    }
+  }
+
+  refreshBlogsProvider(context);
 };
 
 /**
