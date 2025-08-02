@@ -155,11 +155,14 @@ export const getHexoConfig = async (siteDir: string) => {
   return hexo.config;
 };
 
-// 处理创建文件的通用逻辑
+type CreateFileType = "Page" | "Draft" | "Blog";
+/**
+ * Handle file creation logic based on type.
+ */
 export const handleCreateFile = async (
   siteDir: string,
   name: string,
-  type: string,
+  type: CreateFileType,
   context: vscode.ExtensionContext,
   parentPath?: string
 ) => {
@@ -180,20 +183,22 @@ export const handleCreateFile = async (
       throw new Error(`Draft ${name} already exists`);
     }
     await hexoExec(siteDir, `new draft "${name}"`);
-  } else {
-    // Assume it's a Blog
+  } else if (type === "Blog") {
     const postDir = join(hexo.source_dir, POSTS_DIRNAME);
-
     const relativePath = parentPath
       ? parentPath.substring(postDir.length + sep.length).replace(/[/\\]/g, "/")
       : "";
-
     path = join(parentPath ?? postDir, `${name}.md`);
     if (existsSync(path)) {
       await openFile(path);
       throw new Error(`Blog ${name} already exists`);
     }
-    await hexoExec(siteDir, `new --path "${relativePath}/${name}"`);
+    await hexoExec(
+      siteDir,
+      `new --path "${relativePath ? relativePath + "/" : ""}${name}"`
+    );
+  } else {
+    throw new Error(`Unknown type: ${type}`);
   }
 
   await openFile(path);
