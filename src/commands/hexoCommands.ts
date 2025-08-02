@@ -37,7 +37,7 @@ import {
   DRAFTS_DIRNAME,
   POSTS_DIRNAME,
   EXT_HOME_DIR,
-  STARTER_THEMES_DIRNAME,
+  THEMES_DIRNAME,
 } from "../services/config";
 import { basename, join, extname, dirname } from "path";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "fs";
@@ -364,69 +364,6 @@ export const addTheme = async (
 };
 
 /**
- * Delete a Hexo theme.
- */
-export const deleteTheme = async (
-  element: TreeItem,
-  context: ExtensionContext
-): Promise<boolean> => {
-  const { siteDir, label } = element;
-  const themePath = join(siteDir, "themes", label);
-  const themeConfigPath = join(siteDir, `_config.${label}.yml`);
-
-  const confirm = await window.showWarningMessage(
-    `Delete "${label}" theme?`,
-    { modal: true },
-    "Delete"
-  );
-  if (confirm !== "Delete") return false;
-
-  if (existsSync(themePath)) {
-    try {
-      rmSync(themePath, { recursive: true, force: true });
-      logMessage(`Successfully deleted "${label}" Theme.`, true);
-    } catch (error) {
-      handleError(error, `Error deleting "${label}" Theme.`);
-    }
-  }
-
-  if (isModuleExisted(siteDir, `hexo-theme-${label}`)) {
-    try {
-      await execAsync(`npm uninstall hexo-theme-${label}`, { cwd: siteDir });
-      logMessage(
-        `"hexo-theme-${label}" npm module uninstalled successfully.`,
-        true
-      );
-    } catch (error) {
-      handleError(
-        error,
-        `Error uninstalling "hexo-theme-${label}" npm module.`
-      );
-    }
-  }
-
-  if (existsSync(themeConfigPath)) {
-    const configConfirm = await window.showWarningMessage(
-      `Keep "${label}" Theme config?`,
-      { modal: true },
-      "Keep",
-      "Delete"
-    );
-    if (configConfirm === "Delete") {
-      try {
-        rmSync(themeConfigPath, { recursive: true, force: true });
-        logMessage(`Successfully deleted "${label}" Theme config.`, true);
-      } catch (error) {
-        handleError(error, `Error deleting "${label}" Theme config.`);
-      }
-    }
-  }
-
-  refreshBlogsProvider(context);
-  return true;
-};
-
-/**
  * Add a new Hexo site.
  */
 export const addSite = async (
@@ -457,47 +394,23 @@ export const addSite = async (
 };
 
 /**
- * Delete a Hexo site.
+ * Add a new Hexo scaffold.
  */
-export const deleteSite = async (
+export const addScaffold = async (
   element: TreeItem,
   context: ExtensionContext
-): Promise<boolean> => {
-  const { userName, siteName, siteDir, label } = element;
-  const confirm = await window.showWarningMessage(
-    `Delete "${label}" site?`,
-    { modal: true },
-    "Delete"
-  );
-  if (confirm !== "Delete") return false;
+) => {
+  try {
+    const { siteDir } = element;
+    const scaffoldName = await promptForName("Please enter the scaffold name");
+    if (!scaffoldName) return;
 
-  if (existsSync(siteDir)) {
-    try {
-      rmSync(siteDir, { recursive: true, force: true });
-      logMessage(`Successfully deleted "${label}" site.`, true);
-    } catch (error) {
-      handleError(error, `Error deleting "${label}" site.`);
-    }
+    await hexoExec(siteDir, `scaffold ${scaffoldName}`);
+    logMessage(`Scaffold "${scaffoldName}" created successfully.`, true);
+    refreshBlogsProvider(context);
+  } catch (error) {
+    handleError(error, "Failed to add scaffold");
   }
-
-  const octokit = await getUserOctokitInstance(localAccessToken);
-  const repoExists = await checkRepoExists(octokit, siteName);
-  if (repoExists) {
-    const repoConfirm = await window.showWarningMessage(
-      `Keep "${label}" github page?`,
-      { modal: true },
-      "Keep",
-      "Delete"
-    );
-    if (repoConfirm === "Delete") {
-      try {
-        await deleteRemoteRepo(octokit, userName, siteName);
-      } catch (error) {
-        handleError(error, `Error deleting "${label}" github repo.`);
-      }
-    }
-  }
-  return true;
 };
 
 /**

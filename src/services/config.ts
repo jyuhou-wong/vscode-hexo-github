@@ -17,7 +17,9 @@ export const HEXO_CONFIG_NAME = "_config.yml";
 export const POSTS_DIRNAME = "_posts";
 export const DRAFTS_DIRNAME = "_drafts";
 
-export const STARTER_THEMES_DIRNAME = "themes";
+export const THEMES_DIRNAME = "themes";
+
+export const SCAFFOLDS_DIRNAME = "scaffolds";
 
 // Extension Directories Name
 export const HEXO_STARTER_DIRNAME = "hexo-starter";

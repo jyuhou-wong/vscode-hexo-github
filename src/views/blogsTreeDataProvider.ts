@@ -13,9 +13,10 @@ import { basename, join } from "path";
 import {
   POSTS_DIRNAME,
   DRAFTS_DIRNAME,
-  STARTER_THEMES_DIRNAME,
+  THEMES_DIRNAME,
   HEXO_CONFIG_NAME,
   EXT_HOME_DIR,
+  SCAFFOLDS_DIRNAME,
 } from "../services/config";
 import { getHexoConfig } from "../services/hexoService";
 import { existsSync, statSync } from "fs";
@@ -62,8 +63,10 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
     switch (name) {
       case HEXO_CONFIG_NAME:
         return "Configure 配置";
-      case STARTER_THEMES_DIRNAME:
+      case THEMES_DIRNAME:
         return "Themes 主题"; // Label for themes directory
+      case SCAFFOLDS_DIRNAME:
+        return "Scaffolds 模板"; // Label for scaffolds directory
       case POSTS_DIRNAME:
         return "Articles 文章"; // Label for posts directory
       case DRAFTS_DIRNAME:
@@ -117,6 +120,11 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
     if (element?.contextValue === "themes") {
       // If the element is the themes directory, get its children
       return await this.getThemes(element);
+    }
+
+    if (element?.contextValue === "scaffolds") {
+      // If the element is the scaffolds directory, get its children
+      return await this.getScaffolds(element);
     }
 
     if (element?.contextValue === "pages") {
@@ -215,11 +223,20 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
       const themes = new TreeItem(
         userName,
         siteName,
-        BlogsTreeDataProvider.getLabel(STARTER_THEMES_DIRNAME),
+        BlogsTreeDataProvider.getLabel(THEMES_DIRNAME),
         TreeItemCollapsibleState.Collapsed,
         parent
       );
       themes.contextValue = "themes";
+
+      const scaffolds = new TreeItem(
+        userName,
+        siteName,
+        BlogsTreeDataProvider.getLabel(SCAFFOLDS_DIRNAME),
+        TreeItemCollapsibleState.Collapsed,
+        parent
+      );
+      scaffolds.contextValue = "scaffolds";
 
       const configUri = Uri.file(
         join(EXT_HOME_DIR, userName, siteName, HEXO_CONFIG_NAME)
@@ -242,6 +259,7 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
       this.uriCache.set(configUri.toString(), config);
 
       items.unshift(pages); // Add the pages label
+      items.unshift(scaffolds); // Add the scaffolds label
       items.unshift(themes); // Add the themes label
       items.unshift(config); // Add the config label
 
@@ -257,11 +275,7 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
 
     const npmThemeNames = await getThemePackageNamesInPackageJson(siteDir);
     for (const themeName of npmThemeNames) {
-      copyNpmPackageToDir(
-        siteDir,
-        themeName,
-        join(siteDir, STARTER_THEMES_DIRNAME)
-      );
+      copyNpmPackageToDir(siteDir, themeName, join(siteDir, THEMES_DIRNAME));
     }
 
     const localThemes = await getThemesInThemesDir(
@@ -281,6 +295,40 @@ export class BlogsTreeDataProvider implements TreeDataProvider<TreeItem> {
     themes.forEach((v) => this.uriCache.set(v.resourceUri!!.toString(), v));
 
     return themes; // Return all unique themes as an array
+  }
+
+  private async getScaffolds(parent: TreeItem): Promise<TreeItem[]> {
+    const { userName, siteName, siteDir } = parent;
+
+    const scaffoldsDir = join(siteDir, SCAFFOLDS_DIRNAME);
+    if (!existsSync(scaffoldsDir)) {
+      return []; // Return empty if scaffolds directory does not exist
+    }
+    const dirents = await readdir(scaffoldsDir, { withFileTypes: true }); // Read directory entries
+    const items = dirents.map((dirent) => {
+      const fullPath = join(scaffoldsDir, dirent.name); // Full path to the scaffold file
+      const uri = Uri.file(fullPath); // Create a URI for the file
+      const label = dirent.name.replace(/\.md$/i, ""); // Remove .md extension for the label
+      const collapsibleState = TreeItemCollapsibleState.None; // Set as non-collapsible
+      const item = new TreeItem(
+        userName,
+        siteName,
+        label,
+        collapsibleState,
+        parent,
+        uri
+      ); // Create a new TreeItem
+      item.resourceUri = uri;
+      item.command = {
+        command: "vscode.open", // Command to open the file
+        title: "Open File",
+        arguments: [uri], // Arguments for the command
+      };
+      item.contextValue = "scaffold"; // Set context value for scaffolds
+      this.uriCache.set(uri.toString(), item); // Cache the TreeItem
+      return item; // Return the created item
+    });
+    return items; // Return the list of scaffold items
   }
 
   // Get the pages under a specific directory

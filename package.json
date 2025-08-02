@@ -173,28 +173,12 @@
         "title": "Delete"
       },
       {
-        "command": "vscode-hexo-github.deleteTheme",
-        "icon": {
-          "dark": "resources/dark/vscode-hexo-github-delete.svg",
-          "light": "resources/light/vscode-hexo-github-delete.svg"
-        },
-        "title": "Delete theme"
-      },
-      {
         "command": "vscode-hexo-github.addSite",
         "icon": {
           "dark": "resources/dark/vscode-hexo-github-add.svg",
           "light": "resources/light/vscode-hexo-github-add.svg"
         },
         "title": "Add site"
-      },
-      {
-        "command": "vscode-hexo-github.deleteSite",
-        "icon": {
-          "dark": "resources/dark/vscode-hexo-github-delete.svg",
-          "light": "resources/light/vscode-hexo-github-delete.svg"
-        },
-        "title": "Delete site"
       },
       {
         "command": "vscode-hexo-github.deploy",
@@ -267,11 +251,6 @@
           "group": "inline"
         },
         {
-          "command": "vscode-hexo-github.deleteSite",
-          "when": "view == vscode-hexo-github-blogs && viewItem == site",
-          "group": "inline"
-        },
-        {
           "command": "vscode-hexo-github.addTheme",
           "when": "view == vscode-hexo-github-blogs && viewItem == themes",
           "group": "inline"
@@ -283,11 +262,6 @@
         },
         {
           "command": "vscode-hexo-github.applyTheme",
-          "when": "view == vscode-hexo-github-blogs && viewItem == theme",
-          "group": "inline"
-        },
-        {
-          "command": "vscode-hexo-github.deleteTheme",
           "when": "view == vscode-hexo-github-blogs && viewItem == theme",
           "group": "inline"
         },
@@ -308,12 +282,12 @@
         },
         {
           "command": "vscode-hexo-github.deleteItem",
-          "when": "view == vscode-hexo-github-blogs && !(viewItem == site || viewItem == config || viewItem == themes || viewItem == theme || viewItem == pages || viewItem == drafts || viewItem == posts)",
+          "when": "view == vscode-hexo-github-blogs && !(viewItem == sites || viewItem == config || viewItem == themes || viewItem == scaffolds || viewItem == pages || viewItem == drafts || viewItem == posts)",
           "group": "inline"
         },
         {
           "command": "vscode-hexo-github.renameItem",
-          "when": "view == vscode-hexo-github-blogs && !(viewItem == site || viewItem == config || viewItem == themes || viewItem == theme || viewItem == pages || viewItem == drafts || viewItem == posts)",
+          "when": "view == vscode-hexo-github-blogs && !(viewItem == site || viewItem == config || viewItem == themes || viewItem == scaffolds || viewItem == theme || viewItem == pages || viewItem == drafts || viewItem == posts)",
           "group": "1_modification"
         }
       ],
