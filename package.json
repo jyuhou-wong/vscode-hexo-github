@@ -141,6 +141,14 @@
         "title": "Add theme"
       },
       {
+        "command": "vscode-hexo-github.setTheme",
+        "icon": {
+          "dark": "resources/dark/vscode-hexo-github-setting.svg",
+          "light": "resources/light/vscode-hexo-github-setting.svg"
+        },
+        "title": "Set theme"
+      },
+      {
         "command": "vscode-hexo-github.addItem",
         "icon": {
           "dark": "resources/dark/vscode-hexo-github-add.svg",
@@ -266,6 +274,11 @@
         {
           "command": "vscode-hexo-github.addTheme",
           "when": "view == vscode-hexo-github-blogs && viewItem == themes",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-hexo-github.setTheme",
+          "when": "view == vscode-hexo-github-blogs && viewItem == theme",
           "group": "inline"
         },
         {

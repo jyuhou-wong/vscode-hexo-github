@@ -29,7 +29,7 @@ import {
   replaceLastInHtmlLinks,
   setGitUser,
 } from "../utils";
-import { TreeItem } from "../providers/blogsTreeDataProvider";
+import { TreeItem } from "../views/blogsTreeDataProvider";
 import { logMessage } from "../extension";
 
 export let localUsername: string = "";

@@ -15,10 +15,7 @@ import { basename, extname, join } from "path";
 import { promisify } from "util";
 import { exec } from "child_process";
 import minimist from "minimist";
-import {
-  BlogsTreeDataProvider,
-  TreeItem,
-} from "./providers/blogsTreeDataProvider";
+import { BlogsTreeDataProvider, TreeItem } from "./views/blogsTreeDataProvider";
 import axios from "axios";
 import * as net from "net";
 import { SimpleGit } from "simple-git";
@@ -102,6 +99,42 @@ export const installNpmModules = async (dirPath: string) => {
     handleError(error, "Error installing NPM modules");
     return false;
   }
+};
+
+/**
+ * Copies a specified npm package from node_modules to a target directory.
+ * @param dirPath - The root directory containing node_modules.
+ * @param packageName - The name of the npm package to copy.
+ * @param targetDir - The directory to copy the package into.
+ */
+export const copyNpmPackageToDir = (
+  dirPath: string,
+  packageName: string,
+  targetDir: string
+) => {
+  const src = join(dirPath, "node_modules", packageName);
+  const dest = join(targetDir, packageName);
+
+  if (!existsSync(src)) {
+    logMessage(
+      `Package "${packageName}" does not exist in node_modules.`,
+      true,
+      "error"
+    );
+    return;
+  }
+  if (existsSync(dest)) {
+    logMessage(
+      `"${packageName}" already exists in "${targetDir}", skipping copy.`,
+      false
+    );
+    return;
+  }
+  if (!existsSync(targetDir)) {
+    mkdirSync(targetDir, { recursive: true });
+  }
+  copyFiles(src, dest);
+  logMessage(`Copied "${packageName}" to "${targetDir}".`, true);
 };
 
 /**
@@ -546,7 +579,8 @@ export const getThemesInThemesDir = async (
   siteName: string,
   workspaceRoot: string,
   parent: TreeItem,
-  themeDir: string = "themes"
+  themeDir: string = "themes",
+  regex: RegExp = /^hexo-theme-[^-]+$/i
 ): Promise<TreeItem[]> => {
   const themesDir = join(workspaceRoot, themeDir);
 
@@ -555,49 +589,53 @@ export const getThemesInThemesDir = async (
     return [];
   }
 
-  // Read the themes directory and filter for subdirectories
-  const themes = (await readdir(themesDir, { withFileTypes: true }))
-    .filter(({ name }) => statSync(join(themesDir, name)).isDirectory())
-    .map(({ name }) => {
-      const uri = getThemeConfig(
-        workspaceRoot,
-        Uri.file(join(themesDir, name)),
-        name
-      );
+  // Read the themes directory, filter by regex, and create TreeItem for each subdirectory
+  const themes = readdirSync(themesDir)
+    .filter((name) => {
+      // Only keep directories that match the regex
+      return statSync(join(themesDir, name)).isDirectory() && regex.test(name);
+    })
+    .map((name) => {
+      // Remove "hexo-theme-" prefix if present
+      const displayName = name.replace(/^hexo-theme-/, "");
+      const fullPath = join(themesDir, name); // Full path to the item
+      const uri = Uri.file(fullPath); // Create a URI for the item
+
+      // 如果目标配置文件已存在则跳过复制
+      const configPath = join(uri.fsPath, "_config.yml");
+      const destPath = join(workspaceRoot, `_config.${displayName}.yml`);
+      if (!existsSync(destPath) && existsSync(configPath)) {
+        copyFileSync(configPath, destPath);
+        vscode.window.showInformationMessage(
+          `Copied _config.yml of theme "${displayName}" to root as _config.${displayName}.yml`
+        );
+      }
+
       const item = new TreeItem(
         userName,
         siteName,
-        name,
-        TreeItemCollapsibleState.None,
+        displayName,
+        TreeItemCollapsibleState.Collapsed,
         parent,
         uri
       );
       item.resourceUri = uri;
-      item.command = {
-        command: "vscode.open",
-        title: "Open File",
-        arguments: [uri], // Arguments for the command
-      };
       item.contextValue = "theme";
       return item;
     });
 
   return themes; // Return the array of TreeItem representing themes
 };
-
 /**
- * Reads all themes listed in the package.json file.
+ * Reads all themes listed in the package.json file and returns their package names.
  * @param workspaceRoot - The root path of the workspace.
  * @param regex - A regular expression to filter theme names (default matches "hexo-theme-*").
- * @returns An array of TreeItem representing the themes found in package.json.
+ * @returns An array of theme package names found in package.json.
  */
-export const getThemesInPackageJson = (
-  userName: string,
-  siteName: string,
+export const getThemePackageNamesInPackageJson = (
   workspaceRoot: string,
-  parent: TreeItem,
   regex: RegExp = /^hexo-theme-[^-]+$/i
-): TreeItem[] => {
+): string[] => {
   const packageJsonPath = join(workspaceRoot, "package.json");
 
   // Return an empty array if the package.json file does not exist
@@ -608,60 +646,15 @@ export const getThemesInPackageJson = (
   // Read and parse the package.json file
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
 
-  // Convert a module name to a TreeItem
-  const toDep = (moduleName: string): TreeItem => {
-    const themeDir = join(workspaceRoot, "node_modules", moduleName);
-    const themeName = moduleName.replace(/^hexo-theme-/, "");
-    const uri = getThemeConfig(workspaceRoot, Uri.file(themeDir), themeName);
-    const item = new TreeItem(
-      userName,
-      siteName,
-      themeName,
-      vscode.TreeItemCollapsibleState.None,
-      parent,
-      uri
-    );
-    item.resourceUri = uri;
-    item.command = {
-      command: "vscode.open",
-      title: "Open File",
-      arguments: [uri], // Arguments for the command
-    };
-    item.contextValue = "theme";
-    return item;
-  };
-
   // Filter dependencies and devDependencies based on the regex and existence
-  const themes = Object.keys(packageJson.dependencies).filter(
+  const themes = Object.keys(packageJson.dependencies ?? {}).filter(
     (v: string) => regex.test(v) && isModuleExisted(workspaceRoot, v)
   );
   const devThemes = Object.keys(packageJson.devDependencies ?? {}).filter(
     (v: string) => regex.test(v) && isModuleExisted(workspaceRoot, v)
   );
 
-  return [...new Set([...themes, ...devThemes])].map(toDep); // Return unique themes as TreeItems
-};
-
-export const getThemeConfig = (
-  workspaceRoot: string,
-  uri: Uri,
-  name: string
-): Uri => {
-  const configPath = join(uri.fsPath, "_config.yml");
-  const destPath = join(workspaceRoot, `_config.${name}.yml`);
-
-  if (existsSync(destPath)) {
-    return Uri.file(destPath);
-  }
-
-  if (!existsSync(configPath)) {
-    writeFileSync(destPath, "", "utf8");
-    return Uri.file(destPath);
-  }
-
-  copyFileSync(configPath, destPath);
-
-  return Uri.file(destPath);
+  return [...new Set([...themes, ...devThemes])]; // Return unique theme package names
 };
 
 /**

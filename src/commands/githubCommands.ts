@@ -15,7 +15,7 @@ import {
   pushToGitHubPages,
 } from "../services/githubService";
 import { executeWithFeedback, handleError, promptForName } from "../utils";
-import { TreeItem } from "../providers/blogsTreeDataProvider";
+import { TreeItem } from "../views/blogsTreeDataProvider";
 import { hexoExec } from "../services/hexoService";
 
 // Log in to GitHub
