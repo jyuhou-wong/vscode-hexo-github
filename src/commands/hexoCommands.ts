@@ -303,14 +303,7 @@ export const applyTheme = async (
   element: TreeItem,
   context: ExtensionContext
 ) => {
-  const {
-    siteName,
-    siteDir,
-    label,
-    resourceUri: { fsPath } = { fsPath: "" },
-  } = element;
-  commands.executeCommand("vscode.open", Uri.file(fsPath));
-  if (!fsPath) return;
+  const { siteName, siteDir, label } = element;
 
   logMessage("Applying...", true);
   try {
