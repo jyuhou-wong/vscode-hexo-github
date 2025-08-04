@@ -15,19 +15,26 @@ import { basename, extname, join } from "path";
 import { promisify } from "util";
 import { exec } from "child_process";
 import minimist from "minimist";
-import { BlogsTreeDataProvider, TreeItem } from "./views/blogsTreeDataProvider";
+import {
+  BlogsTreeDataProvider,
+  TreeItem,
+} from "../views/blogsTreeDataProvider";
 import axios from "axios";
 import * as net from "net";
 import { SimpleGit } from "simple-git";
-import { DEFAULT_EMAIL, DEFAULT_USERNAME } from "./services/config";
+import {
+  DEFAULT_EMAIL,
+  DEFAULT_USERNAME,
+  EXT_HOME_DIRNAME,
+} from "../services/config";
 import { load, dump } from "js-yaml";
-import { logMessage } from "./extension";
 import {
   checkRepoExists,
   deleteRemoteRepo,
   getUserOctokitInstance,
   localAccessToken,
-} from "./services/githubService";
+} from "../services/githubService";
+import { logMessage } from "./logger";
 
 /**
  * Checks if two paths are equal.
@@ -249,12 +256,12 @@ export const isValidFileName = (fileName: string | undefined): boolean => {
  * @param {number} port - The port number of the server.
  * @returns {string} - The formatted URL as a string.
  */
-export const formatAddress = (ip: string, port: number) => {
+export const formatAddress = (ip: string, port: number, root: string = "/") => {
   // Use 'localhost' for '0.0.0.0' or '::'
   const hostname = ip === "0.0.0.0" || ip === "::" ? "localhost" : ip;
 
   // Construct and return the full URL
-  return new URL(`http://${hostname}:${port}`).toString();
+  return new URL(`http://${hostname}:${port}${root}`).toString();
 };
 
 /**
@@ -932,4 +939,21 @@ export const modifyYamlField = (
   } catch (error) {
     handleError(error, "Error modifying YAML file");
   }
+};
+
+/**
+ * Extracts siteDir and siteName from a given path.
+ * @param path - The path to search for a site directory and name.
+ * @returns An object with siteDir and siteName if found, otherwise undefined.
+ */
+export const extractSiteInfo = (
+  path: string
+): { siteDir: string; siteName: string } | undefined => {
+  // Matches: .../<EXT_HOME_DIRNAME>/<user>/<siteName>/...
+  const pattern = new RegExp(`(.*/${EXT_HOME_DIRNAME}/[^/]+/([^/]+))`);
+  const match = path.match(pattern);
+  if (match && match[1] && match[2]) {
+    return { siteDir: match[1], siteName: match[2] };
+  }
+  return undefined;
 };

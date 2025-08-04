@@ -11,6 +11,7 @@ import {
   createDirectory,
   execAsync,
   executeUserCommand,
+  extractSiteInfo,
   formatAddress,
   getRandomAvailablePort,
   handleError,
@@ -21,7 +22,7 @@ import {
   promptForName,
   refreshBlogsProvider,
   searchNpmPackages,
-} from "../utils";
+} from "../utils/main";
 import {
   checkRepoExists,
   deleteRemoteRepo,
@@ -45,8 +46,9 @@ import {
   BlogsTreeDataProvider,
   TreeItem,
 } from "../views/blogsTreeDataProvider";
-import { logMessage } from "../extension";
 import * as fm from "hexo-front-matter";
+import { logMessage } from "../utils/logger";
+import { openHexoPreview, previewPanel } from "../webview/markdownPreview";
 
 interface ServerInfo {
   server: Server;
@@ -194,15 +196,20 @@ export const startHexoServer = async (
   logMessage("Starting server...", true);
   try {
     const port = await getRandomAvailablePort();
+    const { root } = await getHexoConfig(siteDir);
     const server = await hexoExec(
       siteDir,
       `server --draft --debug --port ${port}`
     );
     const { address } = server.address() as any;
-    const url = formatAddress(address, port);
+    const url = new URL(formatAddress(address, port, root));
 
-    serverMap.set(siteName, { server, address: url });
+    serverMap.set(siteName, { server, address: url.toString() });
     setServerStatus(siteName, true);
+
+    if (previewPanel) {
+      openHexoPreview({ host: url.host });
+    }
     logMessage(`Successfully started server: ${url}`, true);
   } catch (error) {
     handleError(error, "Failed to start Hexo server");
@@ -275,22 +282,28 @@ export const localPreview = async (
   element: TreeItem,
   context: ExtensionContext
 ) => {
-  const {
-    siteName,
-    siteDir,
-    resourceUri: { fsPath } = { fsPath: "" },
-  } = element;
-  commands.executeCommand("vscode.open", Uri.file(fsPath));
+  // Extract siteName, siteDir, and fsPath for preview
+  let siteName: string, siteDir: string, fsPath: string;
+  if (element.siteName && element.siteDir) {
+    siteName = element.siteName;
+    siteDir = element.siteDir;
+    fsPath = element.resourceUri?.fsPath ?? (element as any).path;
+  } else {
+    const info = extractSiteInfo((element as any).path);
+    siteName = info!.siteName;
+    siteDir = info!.siteDir;
+    fsPath = (element as any).path;
+  }
   if (!fsPath) return;
+  await commands.executeCommand("vscode.open", Uri.file(fsPath));
 
-  logMessage("Opening...", true);
   try {
     if (!serverStatusMap.get(siteName)) {
-      await startHexoServer(element, context);
+      await startHexoServer({ siteName, siteDir } as TreeItem, context);
     }
     const { address } = serverMap.get(siteName)!;
     const route = await getPreviewRoute(siteDir, fsPath);
-    open(address + route);
+    openHexoPreview({ previewUrl: address + route });
   } catch (error) {
     handleError(error, "Failed to preview");
   }

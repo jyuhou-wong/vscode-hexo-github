@@ -25,9 +25,9 @@ import {
   copyNpmPackageToDir,
   getThemePackageNamesInPackageJson,
   getThemesInThemesDir,
-} from "../utils";
+} from "../utils/main";
 import { localAccessToken, localUsername } from "../services/githubService";
-import { logMessage } from "../extension";
+import { logMessage } from "../utils/logger";
 
 // Define the TreeItem class which represents each item in the tree
 export class TreeItem extends vscode.TreeItem {

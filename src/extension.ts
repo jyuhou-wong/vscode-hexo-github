@@ -5,12 +5,12 @@ import { registerActiveEditorChangeListener } from "./events";
 import { loadAccessToken } from "./services/githubService";
 import { BlogsTreeDataProvider } from "./views/blogsTreeDataProvider";
 import { BlogsDragAndDropController } from "./views/BlogsDragAndDropController";
-
-let outputChannel: vscode.OutputChannel;
+import { logMessage } from "./utils/logger";
+import { previewPanel } from "./webview/markdownPreview";
+import { localPreview } from "./commands/hexoCommands";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create an output channel
-  outputChannel = vscode.window.createOutputChannel("Hexo GitHub");
   logMessage(
     'Congratulations, your extension "vscode-hexo-github" is now active!'
   );
@@ -37,33 +37,21 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register custom events
   registerActiveEditorChangeListener(context);
+  // Register listener to trigger only when switching between files
+  let lastActiveDocumentUri: vscode.Uri | undefined =
+    vscode.window.activeTextEditor?.document.uri;
+
+  vscode.window.onDidChangeActiveTextEditor((editor) => {
+    if (
+      editor?.document.languageId === "markdown" &&
+      editor.document.uri.toString() !== lastActiveDocumentUri?.toString()
+    ) {
+      lastActiveDocumentUri = editor.document.uri;
+      if (previewPanel) {
+        localPreview(editor.document.uri as any, context);
+      }
+    }
+  });
 }
 
 export function deactivate() {}
-
-// Example function to log messages
-export const logMessage = (
-  message: string,
-  show: boolean = false,
-  type: "info" | "warn" | "error" = "info"
-) => {
-  const timestamp = new Date().toLocaleString();
-  const formatMessage = `[${timestamp}] [${type}] ${message}`;
-  outputChannel.appendLine(formatMessage);
-
-  if (!show) {
-    return;
-  }
-
-  switch (type) {
-    case "info":
-      vscode.window.showInformationMessage(message);
-      break;
-    case "warn":
-      vscode.window.showWarningMessage(message);
-      break;
-    case "error":
-      vscode.window.showErrorMessage(message);
-      break;
-  }
-};

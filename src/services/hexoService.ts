@@ -9,7 +9,7 @@ import {
   installModules,
   modifyYamlField,
   openFile,
-} from "../utils";
+} from "../utils/main";
 import {
   DRAFTS_DIRNAME,
   HEXO_CONFIG_NAME,

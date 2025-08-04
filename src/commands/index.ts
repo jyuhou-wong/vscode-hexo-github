@@ -20,8 +20,9 @@ import {
   renameItem,
   setTheme,
 } from "./hexoCommands";
-import { deleteItem, refreshBlogsProvider } from "../utils";
+import { deleteItem, refreshBlogsProvider } from "../utils/main";
 import { TreeItem } from "../views/blogsTreeDataProvider";
+import { registerConfigEditor } from "../webview/configEditor";
 
 // Register all commands
 const commands = [
@@ -53,6 +54,15 @@ const commands = [
     command: "vscode-hexo-github.refreshTreeview",
     callback: (element: TreeItem, context: vscode.ExtensionContext) =>
       refreshBlogsProvider(context),
+  },
+  {
+    command: "vscode-hexo-github.editFrontMatter",
+    callback: (element: TreeItem, context: vscode.ExtensionContext) =>
+      vscode.commands.executeCommand("hexo.editFrontMatter", element, context),
+  },
+  {
+    command: "vscode-hexo-github.editHexoConfig",
+    callback: registerConfigEditor,
   },
 ];
 
