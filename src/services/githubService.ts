@@ -28,9 +28,9 @@ import {
   refreshBlogsProvider,
   replaceLastInHtmlLinks,
   setGitUser,
-} from "../utils";
+} from "../utils/main";
 import { TreeItem } from "../views/blogsTreeDataProvider";
-import { logMessage } from "../extension";
+import { logMessage } from "../utils/logger";
 
 export let localUsername: string = "";
 export let localAccessToken: string = "";

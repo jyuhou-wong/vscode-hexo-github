@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { revealItem } from "../utils";
+import { revealItem } from "../utils/main";
 
 export const registerActiveEditorChangeListener = (
   context: vscode.ExtensionContext

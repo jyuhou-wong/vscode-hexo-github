@@ -4,7 +4,7 @@ import { basename, join } from "path";
 import { DRAFTS_DIRNAME, POSTS_DIRNAME } from "../services/config";
 import { BlogsTreeDataProvider, TreeItem } from "./blogsTreeDataProvider";
 import { getHexoConfig } from "../services/hexoService";
-import { logMessage } from "../extension";
+import { logMessage } from "../utils/logger";
 import { statSync } from "fs";
 
 export class BlogsDragAndDropController

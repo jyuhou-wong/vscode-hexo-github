@@ -57,6 +57,22 @@
     ],
     "commands": [
       {
+        "command": "vscode-hexo-github.editHexoConfig",
+        "title": "Edit Hexo Config",
+        "icon": {
+          "dark": "resources/dark/vscode-hexo-github-setting.svg",
+          "light": "resources/light/vscode-hexo-github-setting.svg"
+        }
+      },
+      {
+        "command": "vscode-hexo-github.editFrontMatter",
+        "title": "Edit Front Matter",
+        "icon": {
+          "dark": "resources/dark/vscode-hexo-github-setting.svg",
+          "light": "resources/light/vscode-hexo-github-setting.svg"
+        }
+      },
+      {
         "command": "vscode-hexo-github.refreshTreeview",
         "title": "Refresh treeview"
       },
@@ -202,6 +218,12 @@
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "vscode-hexo-github.localPreview",
+          "group": "navigation"
+        }
+      ],
       "view/title": [
         {
           "command": "vscode-hexo-github.pullHexo",
@@ -230,6 +252,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "vscode-hexo-github.editHexoConfig",
+          "when": "view == vscode-hexo-github-blogs && viewItem == config",
+          "group": "inline"
+        },
         {
           "command": "vscode-hexo-github.setCName",
           "when": "view == vscode-hexo-github-blogs && viewItem == site",
