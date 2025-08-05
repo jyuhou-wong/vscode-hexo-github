@@ -4,6 +4,11 @@ import * as fs from "fs";
 import yaml from "js-yaml";
 import { TreeItem } from "../../views/blogsTreeDataProvider";
 import { getDevHtml, getProdHtml } from "../../panels/getHtml";
+import {
+  serverStatusMap,
+  startHexoServer,
+  stopHexoServer,
+} from "../../commands/hexoCommands";
 
 export function registerConfigEditor(
   element: TreeItem,
@@ -33,18 +38,28 @@ export function registerConfigEditor(
   // 初始发送配置
   const yamlText = fs.readFileSync(element?.resourceUri?.fsPath!, "utf-8");
   const config = yaml.load(yamlText);
-  panel.webview.postMessage({
-    type: "load-config",
-    data: config,
-    route: "/config",
-  });
-
   // 接收保存消息
   panel.webview.onDidReceiveMessage((msg) => {
+    console.log("Received message:", msg);
+    if (msg.type === "app-ready") {
+      panel.webview.postMessage({
+        type: "load-config",
+        data: config,
+        route: "/config",
+      });
+    }
+
     if (msg.type === "save-config") {
       const newYaml = yaml.dump(msg.data);
       fs.writeFileSync(element?.resourceUri?.fsPath!, newYaml, "utf-8");
       vscode.window.showInformationMessage("配置已保存！");
+
+      if (serverStatusMap.get(element.siteName)) {
+        stopHexoServer(element, context).then(() => {
+          // 重新启动 Hexo 服务器
+          startHexoServer(element, context);
+        });
+      }
     }
   });
 }
