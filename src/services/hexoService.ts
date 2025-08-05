@@ -201,5 +201,7 @@ export const handleCreateFile = async (
     throw new Error(`Unknown type: ${type}`);
   }
 
-  await openFile(path);
+  setTimeout(() => {
+    openFile(path);
+  }, 1000);
 };

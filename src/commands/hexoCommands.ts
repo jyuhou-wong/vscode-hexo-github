@@ -1,22 +1,18 @@
 import { Uri, ExtensionContext, window, workspace, commands } from "vscode";
-import * as vscode from "vscode";
 import {
   getHexoConfig,
   getPreviewRoute,
   handleCreateFile,
   hexoExec,
 } from "../services/hexoService";
-import open from "open";
 import {
   createDirectory,
-  execAsync,
   executeUserCommand,
   extractSiteInfo,
   formatAddress,
   getRandomAvailablePort,
   handleError,
   installNpmModule,
-  isModuleExisted,
   isValidPath,
   openFile,
   promptForName,
@@ -55,8 +51,8 @@ interface ServerInfo {
   address: string;
 }
 
-const serverMap: Map<string, ServerInfo> = new Map();
-const serverStatusMap: Map<string, boolean> = new Map();
+export const serverMap: Map<string, ServerInfo> = new Map();
+export const serverStatusMap: Map<string, boolean> = new Map();
 
 /**
  * Execute a custom Hexo command.
@@ -141,42 +137,6 @@ async function handleBlogOrSubRoute(
     await handleCreateFile(siteDir, name, "Blog", context, parentPath);
   }
 }
-
-/**
- * Create a new Hexo blog post.
- */
-export const createNewBlogPost = async (
-  element: TreeItem,
-  context: ExtensionContext
-) => {
-  try {
-    const { siteDir } = element;
-    const inputPath = await window.showInputBox({
-      placeHolder: "e.g., about/My first blog",
-    });
-    if (!inputPath) return;
-    if (!isValidPath(inputPath)) throw new Error("Path is invalid");
-
-    const config = await getHexoConfig(siteDir);
-    const postPath = join(
-      siteDir,
-      config.source_dir,
-      POSTS_DIRNAME,
-      `${inputPath}.md`
-    );
-    if (existsSync(postPath)) throw new Error("Blog already exists");
-
-    await hexoExec(siteDir, `new --path "${inputPath}"`);
-    const document = await workspace.openTextDocument(postPath);
-    await window.showTextDocument(document);
-    logMessage(
-      `Blog ${basename(inputPath)} created and opened for editing.`,
-      true
-    );
-  } catch (error) {
-    handleError(error, "Failed to create new blog");
-  }
-};
 
 /**
  * Update server status.
