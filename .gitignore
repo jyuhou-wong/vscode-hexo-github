@@ -4,3 +4,4 @@ node_modules
 *.vsix
 
 src/ui/node_modules
+src/ui
