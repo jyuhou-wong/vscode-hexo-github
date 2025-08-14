@@ -52,15 +52,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <van-config-provider :theme="mode">
-    <router-view v-slot="{ Component }">
-      <keep-alive
-        exclude="Login,Register,ResetPassword,Me,WinlyDetail,Product,MyProducts,TrialBot,AddBot,UpgradeOrRenewBot,Withdraw,WithdrawHistory"
-      >
-        <component :is="Component" />
-      </keep-alive>
-    </router-view>
-  </van-config-provider>
+  <router-view v-slot="{ Component }">
+    <keep-alive
+      exclude=""
+    >
+      <component :is="Component" />
+    </keep-alive>
+  </router-view>
 </template>
 
 <style scoped>

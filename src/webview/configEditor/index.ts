@@ -35,12 +35,12 @@ export function registerConfigEditor(
     ? getDevHtml(5173) // 使用开发服务器端口
     : getProdHtml(context);
 
-  // 初始发送配置
-  const yamlText = fs.readFileSync(element?.resourceUri?.fsPath!, "utf-8");
-  const config = yaml.load(yamlText);
   // 接收保存消息
   panel.webview.onDidReceiveMessage((msg) => {
     console.log("Received message:", msg);
+    // 初始发送配置
+    const yamlText = fs.readFileSync(element?.resourceUri?.fsPath!, "utf-8");
+    const config = yaml.load(yamlText);
     if (msg.type === "app-ready") {
       panel.webview.postMessage({
         type: "load-config",
@@ -53,6 +53,12 @@ export function registerConfigEditor(
       const newYaml = yaml.dump(msg.data);
       fs.writeFileSync(element?.resourceUri?.fsPath!, newYaml, "utf-8");
       vscode.window.showInformationMessage("配置已保存！");
+
+      panel.webview.postMessage({
+        type: "load-config",
+        data: msg.data,
+        route: "/config",
+      });
 
       if (serverStatusMap.get(element.siteName)) {
         stopHexoServer(element, context).then(() => {

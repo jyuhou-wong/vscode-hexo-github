@@ -1,0 +1,262 @@
+@startuml VSCode-Hexo-GitHub-Flow
+title vscode-hexo-github — Full End-to-End Flow (covers all shipped features)
+
+'==================== Actors & Modules ====================
+actor User
+
+box "VSCode Extension (Extension Host)" #DDDDFF
+  participant "TreeView / Menus / QuickPick\n(Blogs panel, context menus)" as UI
+  participant "Command System\nregisterCommands()" as CMD
+  participant "Event Listeners\nonDidChangeActiveTextEditor,\nFS Watchers (chokidar)" as EVT
+  participant "Webview: Preview Panel\n(getPreviewHtml, postMessage)" as Preview
+  participant "Webview: Config Editor (Vue)\n(getDevHtml / getProdHtml)" as ConfigUI
+end box
+
+box "Core Services (src/services/*)" #DDFFDD
+  participant "hexoService\ninitializeHexo / hexoExec /\ngetPreviewRoute / getHexoConfig /\nhandleCreateFile" as HexoSvc
+  participant "githubService\nOAuth / token store /\nrepo bootstrap / deploy /\nopen links" as GitSvc
+  participant "utils/main.ts\nports / YAML / npm /\ncopy files / errors / logging" as Utils
+end box
+
+box "Local Storage" #FFF2CC
+  database "EXT_HOME_DIR\n~/.vscode-hexo-github/<user>" as EXT
+  database "Hexo Site Directory\n(siteDir)" as SITE
+end box
+
+box "External Systems" #E6F3FF
+  participant "Hexo Runtime\n(hexo init/server/generate)" as HEXO
+  participant "simple-git" as Sgit
+  participant "Octokit (GitHub REST API)" as Octokit
+  database "GitHub Repos\n- <user>/vscode-hexo-github-db\n- <user>/<site>\n- <user>.github.io" as GHRepos
+  collections "NPM Registry" as NPM
+end box
+
+'==================== 0) Extension Activation ====================
+== 0) Activation & Bootstrap ==
+User -> UI : VSCode starts / loads extension
+UI -> CMD : activate(context)
+CMD -> GitSvc : loadAccessToken()\n(read EXT/config.json)
+alt token valid
+  GitSvc -> Octokit : users.getAuthenticated()
+  Octokit --> GitSvc : login name
+  GitSvc -> EXT : saveAccessToken(login, token)\n(create user dir)
+  GitSvc -> UI : setContext(isLogin=true)
+  UI -> CMD : vscode-hexo-github.refreshTreeview
+  CMD -> GitSvc : pullHexo()  ' bootstrap DB repo
+else no token / invalid
+  GitSvc -> UI : setContext(isLogin=false)
+end
+EVT <- CMD : registerActiveEditorChangeListener()\n(revealItem debounce)
+note right of CMD
+  extension.ts:
+  - Output channel init (logMessage)
+  - Creates BlogsTreeDataProvider + TreeView
+  - Attaches drag&drop controller
+end note
+
+'==================== 1) OAuth Login/Logout ====================
+== 1) GitHub OAuth Login / Logout ==
+User -> UI : Click "Login to GitHub"
+UI -> CMD : loginToGitHub()
+CMD -> GitSvc : startOAuthLogin()
+GitSvc -> GitSvc : start Express on :3000\nbuild authorize URL
+GitSvc -> User : open(auth URL in browser)
+User -> Octokit : authorise app (OAuth)
+Octokit --> GitSvc : redirect to /auth/callback?code=...
+GitSvc -> Octokit : exchange code → access_token
+Octokit --> GitSvc : access_token
+GitSvc -> EXT : saveAccessToken()\n(update config.json)
+GitSvc -> UI : setContext(isLogin=true)\nrefreshTreeview + pullHexo()
+
+User -> UI : Click "Logout from GitHub"
+UI -> CMD : logoutFromGitHub()
+CMD -> GitSvc : revokeAccessToken(token)\n(removeAccessToken(login))
+GitSvc -> UI : setContext(isLogin=false)\nrefreshTreeview
+
+'==================== 2) DB Repo Sync ====================
+== 2) DB Repo Sync (vscode-hexo-github-db) ==
+CMD -> GitSvc : pullHexo(context)
+GitSvc -> Octokit : listForAuthenticatedUser()
+alt repo exists
+  GitSvc -> Sgit : (local exists?)\ninit/fetch/checkout or pull --theirs
+else repo missing
+  alt local missing
+    GitSvc -> Sgit : init + initial commit\n(README.md, .gitignore)
+    GitSvc -> Octokit : create repo vscode-hexo-github-db
+    GitSvc -> Sgit : push origin main
+  else local exists only
+    GitSvc -> Octokit : create repo
+    GitSvc -> Sgit : push origin main
+  end
+end
+CMD -> UI : refresh Blogs TreeView
+
+'==================== 3) Create Site ====================
+== 3) Create New Site ==
+User -> UI : "Add site"
+UI -> CMD : addSite()
+CMD -> GitSvc : getUserOctokitInstance(token)
+CMD -> Octokit : check repo <site>
+alt already exists
+  CMD -> UI : error "exists on GitHub"
+else
+  CMD -> GitSvc : initializeSite(siteDir)
+  GitSvc -> NPM : download hexo-starter.zip
+  GitSvc -> EXT : unzip → siteDir\ninstallNpmModules()
+  CMD -> UI : refresh TreeView
+  CMD -> GitSvc : pushToGitHubPages({user, siteDir, siteName})
+  note right
+    If <user>.github.io missing:
+    - create user Pages repo
+    - initializeSite + first deploy
+  end note
+  CMD -> GitSvc : pushHexo(context)\n(sync DB repo)
+end
+
+'==================== 4) Draft/Post/Page CRUD ====================
+== 4) Content Creation (Draft/Post/Page/Sub Route) ==
+User -> UI : Right-click "Add"
+UI -> CMD : addItem(element)
+CMD -> HexoSvc : handleCreateFile(siteDir, name, type)\n(Page | Draft | Blog | Sub-Route)
+HexoSvc -> HEXO : hexo new ...\n(scaffold if needed)
+HEXO --> SITE : write files\n(_drafts/*.md, _posts/*.md,\n<page>/index.md)
+CMD -> UI : open editor
+
+User -> UI : "Publish Draft"
+UI -> CMD : publishDraft(element)
+CMD -> HEXO : hexo publish <name> --debug
+HEXO --> SITE : move _drafts → _posts
+CMD -> UI : open published file
+
+User -> UI : "Rename"
+UI -> CMD : renameItem(element)
+CMD -> SITE : fs.rename(old → new)
+CMD -> SITE : update front-matter title\n(hexo-front-matter)
+EVT -> UI : FS watcher triggers provider.refresh()
+
+User -> UI : Drag draft → posts
+UI -> EVT : Tree Drag&Drop
+EVT -> SITE : fs.rename(path)\n(move folder/file)
+EVT -> UI : provider.refresh()
+
+'==================== 5) Preview & Auto Refresh ====================
+== 5) Preview & Auto Refresh ==
+User -> UI : "Preview" / switch markdown tab
+UI -> CMD : localPreview(uri)
+alt server not running for site
+  CMD -> CMD : startHexoServer()
+  CMD -> HexoSvc : getHexoConfig(siteDir) → {root}
+  CMD -> Utils : getRandomAvailablePort()
+  CMD -> HEXO : hexo server --draft --debug --port <p>
+  HEXO --> CMD : http://127.0.0.1:<p> (actual bind)
+  CMD -> Utils : formatAddress(bind, port, root)
+  CMD -> Preview : openHexoPreview({host})
+end
+CMD -> HexoSvc : getPreviewRoute(siteDir, fsPath)\n(load generators; match source)
+HexoSvc --> CMD : /yyyy/mm/dd/name/index.html (route)
+CMD -> Preview : postMessage('refresh-preview', address+route)
+Preview --> User : live blog iframe refresh
+
+EVT -> CMD : onDidChangeActiveTextEditor\n(if languageId==markdown and file changed)\n→ localPreview() (follow active file)
+
+'==================== 6) Visual Config Editor (Webview) ====================
+== 6) Config Editor (GUI) & Hot Reload ==
+User -> UI : "Edit Hexo Config"
+UI -> CMD : registerConfigEditor(element)
+CMD -> ConfigUI : show WebviewPanel
+alt Dev mode
+  ConfigUI -> CMD : getDevHtml(5173)\n(CSP allow ws/http)
+else Prod mode
+  ConfigUI -> CMD : getProdHtml()\n(rewrite src/href to webview URIs)
+end
+ConfigUI -> CMD : postMessage('app-ready')
+CMD -> SITE : read _config.yml → yaml.load
+CMD -> ConfigUI : postMessage('load-config', data)
+
+User -> ConfigUI : edits → Save
+ConfigUI -> CMD : postMessage('save-config', data)
+CMD -> SITE : write _config.yml (yaml.dump)
+alt Hexo server running
+  CMD -> CMD : stopHexoServer() then startHexoServer()
+  CMD -> Preview : postMessage('refresh-preview')\n(update host/URL)
+end
+CMD -> UI : showInformationMessage("Saved")
+
+'==================== 7) Theme Management ====================
+== 7) Theme Management ==
+User -> UI : "Add Theme"
+UI -> CMD : addTheme(site)
+CMD -> Utils : searchNpmPackages("hexo-theme-*")
+CMD -> NPM : search
+NPM --> CMD : options
+User -> UI : pick theme
+CMD -> Utils : installNpmModule(siteDir, theme)
+CMD -> UI : refresh Blogs TreeView
+
+User -> UI : "Apply Theme"
+UI -> CMD : applyTheme(themeItem)
+CMD -> HEXO : hexo config theme <name>\nhexo clean --debug
+alt server running
+  CMD -> CMD : stopHexoServer(); startHexoServer()
+  CMD -> Preview : refresh host
+end
+User -> UI : "Set Theme" (open config)
+UI -> CMD : setTheme(theme)
+CMD -> SITE : open _config.<theme>.yml (editor)
+
+'==================== 8) Deploy to GitHub Pages ====================
+== 8) One-Click Deploy (with CNAME/HTTPS) ==
+User -> UI : "Deploy blog"
+UI -> CMD : deployBlog(element)
+CMD -> GitSvc : pushToGitHubPages(element)
+GitSvc -> HexoSvc : initializeHexo(siteDir)\n(install missing deps; ensure url)\n(if CNAME set: url=http://<cname>)\n(else url=https://<user>.github.io[/<site>])
+GitSvc -> HEXO : hexo generate
+HEXO --> SITE : public/ (static files)
+
+' Post-process public/
+CMD -> Utils : replaceLastInHtmlLinks(public/*.html,\nCOPYRIGHT_SEARCH_REGEX → REPLACE_STRING)
+CMD -> EXT : copy userDir files → public/\n(except .gitignore, config.json)
+CMD -> EXT : write CNAME if provided\n(or remove if unset)
+
+' Git push
+GitSvc -> Sgit : init public/.git (if missing)\nset user, set remote with token
+alt remote exists
+  GitSvc -> Sgit : pull origin main --ours\n(clearDirectory except .git)
+end
+GitSvc -> Sgit : add . ; commit ; push -f origin main
+
+' Enable Pages + HTTPS
+GitSvc -> Octokit : POST /repos/{owner}/{repo}/pages\n(branch=main, path=/)
+Octokit --> GitSvc : ok
+GitSvc -> Octokit : PUT /repos/{owner}/{repo}/pages {https_enforced:true}
+Octokit --> GitSvc : ok
+CMD -> UI : "Pushed to GitHub Pages successfully"
+
+'==================== 9) Openers & Utilities ====================
+== 9) Openers & Misc ==
+User -> UI : "Open Source Repository"
+UI -> CMD : openSourceRepository()
+CMD -> GitSvc : openDatabaseGit() → browser
+
+User -> UI : "Open Pages Repository"
+UI -> CMD : openPageRepository()
+CMD -> GitSvc : openPageGit(site) → browser
+
+User -> UI : "Open GitHub Pages"
+UI -> CMD : openPage()
+alt CNAME exists
+  CMD -> User : open http://<cname>
+else
+  CMD -> User : open https://<user>.github.io[/<site>]
+end
+
+== 10) Errors, Logging, Security ==
+CMD -> UI : logMessage(...) → Output channel
+note over GitSvc,HexoSvc
+  - Error handling consolidated in utils/handleError
+  - Token stored only in EXT/config.json
+  - Webviews don’t receive token (message-passing only)
+  - Required modules ensured: ["hexo-server-live"]
+  - FS watchers (chokidar) debounce refresh
+end note
+@enduml

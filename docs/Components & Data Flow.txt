@@ -1,0 +1,40 @@
+@startuml VSCode-Hexo-GitHub-Components
+title vscode-hexo-github — Components & Data Flow
+
+package "VSCode Extension" {
+  [TreeView / Commands] as UI
+  [Event Listeners\n(ActiveEditor + FS Watchers)] as Listeners
+  [Webview: Preview Panel] as Preview
+  [Webview: Config Editor (Vue3 + Vite)] as ConfigUI
+  [hexoService] as HexoSvc
+  [githubService] as GitSvc
+  [BlogsTreeDataProvider] as Provider
+}
+
+node "Local Machine" {
+  database "EXT_HOME_DIR" as EXT
+  folder "Hexo Site (siteDir)" as SITE
+}
+
+cloud "GitHub" {
+  [OAuth] as OAuth
+  [Source Repo] as SrcRepo
+  [Pages Repo] as PagesRepo
+  [GitHub Pages (HTTPS + CNAME)] as Pages
+}
+
+UI --> HexoSvc : create/publish/generate/server
+UI --> GitSvc  : login/pull/push/deploy
+UI --> Preview : open/refresh via postMessage
+UI --> ConfigUI
+ConfigUI --> UI  : postMessage(save-config)
+HexoSvc --> SITE
+HexoSvc --> EXT
+HexoSvc ..> Preview : preview route / restart info
+GitSvc --> OAuth
+GitSvc --> SrcRepo
+GitSvc --> PagesRepo
+PagesRepo --> Pages
+Provider ..> SITE : watch FS changes (debounced refresh)
+
+@enduml
