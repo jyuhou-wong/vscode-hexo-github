@@ -1,0 +1,42 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": {
+      "8J52SRPW6X.com.zhihu.ios": {
+        "paths": [
+          "*"
+        ]
+      },
+      "B6MTNRMU2Y.com.zhihu.ios": {
+        "paths": [
+          "*"
+        ]
+      },
+      "B6MTNRMU2Y.com.zhihu.ios-dev": {
+        "paths": [
+          "*"
+        ]
+      },
+      "8J52SRPW6X.com.zhihu.explore": {
+        "paths": [
+          "*"
+        ]
+      },
+      "B6MTNRMU2Y.com.zhihu.explore": {
+        "paths": [
+          "*"
+        ]
+      },
+      "B6MTNRMU2Y.com.zhihu.explore-dev": {
+        "paths": [
+          "*"
+        ]
+      },
+      "9648AUPX6F.com.todamoon.ios": {
+        "paths": [
+          "*"
+        ]
+      }
+    }
+  }
+}
