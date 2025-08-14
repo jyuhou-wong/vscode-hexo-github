@@ -8,7 +8,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    123: typeof import('./../pages/config/components/123.vue')['default']
     ConfigFieldRenderer: typeof import('./../pages/config/components/ConfigFieldRenderer.vue')['default']
     ConfigGroupRenderer: typeof import('./../pages/config/components/ConfigGroupRenderer.vue')['default']
     FrontMatterForm: typeof import('./../components/FrontMatterForm.vue')['default']

@@ -90,6 +90,27 @@ Hexo-GitHub 是一个 VSCode 插件，专注于通过直观的可视化操作简
 
 All notable changes to the "vscode-hexo-github" extension will be documented in this file.
 
+### [3.0.8] - 2025-08-14
+#### Added
+- Enhanced Hexo configuration editor
+- Preview panel and HTML generation for Hexo blog previews
+- Drag-and-drop functionality for Posts and Drafts directories
+- setTheme command and associated functionality
+
+#### Changed
+- Refined rename command visibility in blog management
+- Improved site directory and name form logic
+
+#### Fixed
+- Simplified applyTheme function and removed unnecessary destructuring
+- Logging imports and formatAddress function to include root path
+
+#### Refactor
+- Removed deleteTheme and deleteSite commands; added scaffolds support
+- Refactored blogsTreeDataProvider and related imports
+- Code style improvements
+- Removed unused files and configurations
+
 ### [3.0.7] - 2025-06-19
 - Fix theme searching issue
 
