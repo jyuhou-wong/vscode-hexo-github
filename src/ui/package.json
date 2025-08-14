@@ -5,8 +5,8 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "dev": "cross-env MOCK_SERVER_PORT=8086 vite",
-    "build:test": "vite build --mode test  && cd dist && zip -r ../dist_test.zip . && cd .. && vite preview",
-    "build:pro": "t && cd dist && zip -r ../dist_production.zip . && cd .. && vite preview",
+    "build:test": "vite build --mode test && cd dist && zip -r ../dist_test.zip . && cd .. && vite preview",
+    "build:pro": "vite build --mode production  && cd dist && zip -r ../dist_production.zip . && cd .. && vite preview",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

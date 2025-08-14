@@ -40,7 +40,7 @@ window.addEventListener('message', (event) => {
   const msg = event.data
   if (msg.type === 'load-config') {
     const store = useConfigStore()
-    store.load(msg.data, msg.path)
-    router.push(msg.route || '/config')
+    store.load(msg.data)
+    router.replace(msg.route || '/config')
   }
 })
