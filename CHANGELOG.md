@@ -2,6 +2,12 @@
 
 All notable changes to the "vscode-hexo-github" extension will be documented in this file.
 
+## [3.0.9] - 2025-08-26
+
+### Changed
+- Improved CI workflow for release automation and publishing to VS Code Marketplace and Open VSX.
+- README.md cleanup step added to CI.
+
 ## [3.0.8] - 2025-08-14
 ### Added
 - Enhanced Hexo configuration editor
