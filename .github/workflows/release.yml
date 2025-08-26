@@ -29,7 +29,7 @@ jobs:
         run: npm install -g @vscode/vsce ovsx
 
       - name: Package the extension
-        run: vsce package --no-dependencies
+        run: vsce packagex
         # produces vscode-hexo-github-<version>.vsix
 
       - name: Set Release Name
