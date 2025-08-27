@@ -10,6 +10,9 @@ export const logMessage = (
 ) => {
   const timestamp = new Date().toLocaleString();
   const formatMessage = `[${timestamp}] [${type}] ${message}`;
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel("Hexo GitHub for VSCode");
+  }
   outputChannel?.appendLine(formatMessage);
 
   if (!show) {
