@@ -26,7 +26,6 @@ import * as vscode from "vscode";
 export function getProdHtml(context: vscode.ExtensionContext): string {
   const indexPath = path.join(
     context.extensionPath,
-    "src",
     "media",
     "dist",
     "index.html"
@@ -35,7 +34,7 @@ export function getProdHtml(context: vscode.ExtensionContext): string {
 
   // 修复静态资源路径
   const baseUri = vscode.Uri.file(
-    path.join(context.extensionPath, "src", "media", "dist")
+    path.join(context.extensionPath, "media", "dist")
   );
   const webviewBaseUri = vscode.Uri.joinPath(baseUri);
   const fixPath = (s: string) =>

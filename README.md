@@ -1,11 +1,5 @@
 # Hexo-GitHub VSCode Plugin
 
-[![License](https://img.shields.io/github/license/jyuhou-wong/vscode-hexo-github.svg)](https://github.com/jyuhou-wong/vscode-hexo-github/blob/master/LICENSE)
-[![Build Status](https://github.com/jyuhou-wong/vscode-hexo-github/workflows/Release/badge.svg)](https://github.com/jyuhou-wong/vscode-hexo-github/actions)
-[![Github Downloads](https://img.shields.io/github/downloads/jyuhou-wong/vscode-hexo-github/total.svg)](http://gra.caldis.me/?url=https://github.com/jyuhou-wong/vscode-hexo-github)
-<a title="Hits" target="_blank" href="https://github.com/jyuhou-wong/vscode-hexo-github"><img src="https://hits.b3log.org/jyuhou-wong/vscode-hexo-github.svg"></a>
-[![Github Release Version](https://img.shields.io/github/v/release/jyuhou-wong/vscode-hexo-github?color=green&include_prereleases)](https://github.com/jyuhou-wong/vscode-hexo-github/releases/latest)
-
 Hexo-GitHub is a VSCode plugin focused on simplifying Hexo blog management and GitHub integration through intuitive visual operations. Users can easily create, update, and deploy their Hexo blogs with this plugin.
 
 ## Demo
