@@ -2,6 +2,11 @@
 
 All notable changes to the "vscode-hexo-github" extension will be documented in this file.
 
+## [3.0.12] - 2025-08-31
+
+### Fixed
+- Fixed issue where the configure editor could not be opened in the production environment.
+
 ## [3.0.9] - 2025-08-26
 
 ### Changed
