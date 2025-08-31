@@ -84,6 +84,11 @@ This plugin depends on the following npm packages:
 
 All notable changes to the "vscode-hexo-github" extension will be documented in this file.
 
+### [3.0.14] - 2025-09-01
+
+#### Refactor
+- Update label binding in ConfigGroupRenderer for better clarity
+
 ### [3.0.13] - 2025-08-31
 
 #### Refactor
