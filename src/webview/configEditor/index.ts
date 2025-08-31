@@ -21,7 +21,7 @@ export function registerConfigEditor(
     {
       enableScripts: true,
       localResourceRoots: [
-        vscode.Uri.file(path.join(context.extensionPath, "src", "media")),
+        vscode.Uri.file(path.join(context.extensionPath, "media", "dist")),
         vscode.Uri.file(path.dirname(element?.resourceUri?.fsPath!)), // 允许 WebView 访问文件
       ],
     }
@@ -33,7 +33,7 @@ export function registerConfigEditor(
 
   panel.webview.html = isDev
     ? getDevHtml(5173) // 使用开发服务器端口
-    : getProdHtml(context);
+    : getProdHtml(context, panel.webview);
 
   // 接收保存消息
   panel.webview.onDidReceiveMessage((msg) => {

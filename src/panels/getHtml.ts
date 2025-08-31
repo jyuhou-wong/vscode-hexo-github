@@ -23,7 +23,10 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-export function getProdHtml(context: vscode.ExtensionContext): string {
+export function getProdHtml(
+  context: vscode.ExtensionContext,
+  webview: vscode.Webview
+): string {
   const indexPath = path.join(
     context.extensionPath,
     "media",
@@ -36,9 +39,10 @@ export function getProdHtml(context: vscode.ExtensionContext): string {
   const baseUri = vscode.Uri.file(
     path.join(context.extensionPath, "media", "dist")
   );
-  const webviewBaseUri = vscode.Uri.joinPath(baseUri);
+  const webviewBaseUri = webview.asWebviewUri(baseUri).toString();
+  // Replace all src and href paths that start with / or ./assets/ to use the webviewBaseUri
   const fixPath = (s: string) =>
-    s.replace(/(src|href)="\//g, `$1="${webviewBaseUri.toString()}/`);
+    s.replace(/(src|href)="\/([^"]+)"/g, `$1="${webviewBaseUri}/$2"`);
 
   return fixPath(html);
 }
